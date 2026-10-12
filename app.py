@@ -111,6 +111,11 @@ with left:
             S.img, S.img_key = prepare_image(up), key
             S.chat.append(("tutor", "Got your problem. Tell me (type or use the mic) where you're stuck."))
 
+with left:
+    with st.expander("🔑 Teacher notes (optional): reference solution"):
+        st.caption("Hidden ground truth for the tutor. It steers toward this but never reveals it.")
+        st.text_area("Reference solution", key="ref", height=150, label_visibility="collapsed")
+
 with right:
     ai = st.selectbox("AI provider", ["default", "groq", "gemini"], index=0)
     use_tts = st.checkbox("Speak replies", value=True)
@@ -144,6 +149,7 @@ if message and message.strip():
                     S.sess, message,
                     image=(S.img, "image/jpeg") if first else None,
                     provider=None if ai == "default" else ai,
+                    reference=S.get("ref", ""),
                 )
             S.chat.append(("tutor", r["spoken_question"]))
             S.overlays, S.meta, spoke = r["overlays"], r, r["spoken_question"]
