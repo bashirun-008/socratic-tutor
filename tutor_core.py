@@ -69,8 +69,9 @@ def sanitize(data: dict) -> dict:
     }
 
 
-def run_turn(sess: dict, message: str, image=None, provider=None) -> dict:
-    """One tutoring turn. image = (bytes, mime) on the first turn only."""
+def run_turn(sess: dict, message: str, image=None, provider=None, reference: str = "") -> dict:
+    """One tutoring turn. image = (bytes, mime) on the first turn only.
+    reference = optional teacher solution: ground truth the tutor must steer toward but never reveal."""
     history = sess["history"]
     if image is None and not history:
         raise RuntimeError("Upload an image of your problem first.")
@@ -81,13 +82,27 @@ def run_turn(sess: dict, message: str, image=None, provider=None) -> dict:
     min_level = min(3, 1 + sess["stuck"])
 
     def call_history(extra=""):
+        parts = []
+        if sess["asked"]:
+            parts.append(
+                f"Use hint_level >= {min_level}. If the student is vague or repeats your "
+                f"question back, change approach (simpler sub-question or analogy). "
+                f"Do NOT repeat or lightly rephrase any of these earlier questions: "
+                f"{json.dumps(sess['asked'][-6:])}."
+            )
+        if reference.strip():
+            parts.append(
+                "REFERENCE SOLUTION from the teacher. Treat it as ground truth for the circuit "
+                "and the physics. NEVER reveal or quote it and never state its final answer; use it "
+                "only to check the student's claims and steer your questions toward it. If a "
+                "student claim contradicts it, do NOT confirm it (even if they ask 'right?'): "
+                "ask a question that exposes the contradiction. Reference: " + reference.strip()
+            )
+        parts.append(extra.strip()) if extra.strip() else None
         note = (
-            f"\n\n[TUTOR CONTROL NOTE, not from the student. Never mention it. "
-            f"Use hint_level >= {min_level}. If the student is vague or repeats your "
-            f"question back, change approach (simpler sub-question or analogy). "
-            f"Do NOT repeat or lightly rephrase any of these earlier questions: "
-            f"{json.dumps(sess['asked'][-6:])}.{extra}]"
-        ) if sess["asked"] else ""
+            "\n\n[TUTOR CONTROL NOTE, not from the student. Never mention it. "
+            + " ".join(parts) + "]"
+        ) if parts else ""
         last = history[-1]
         base = history[:-1]
         if len(base) > 6:  # keep the image message + recent turns (saves tokens)
